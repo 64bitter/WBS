@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WBS Programmiert ESP32 v5</title>
+
+    <link rel="stylesheet" href="/spiffs/js/xterm.css" />
+    <script src="/spiffs/js/xterm.js"></script>
+    <script src="/spiffs/js/xterm-addon-fit.js"></script>
+
+    <style>
+      body, html {
+          height: 100%;
+          width: 100%; 
+          margin: 0;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          background-color: #272822;
+          font-family: Arial, sans-serif;
+          color: white;
+      }
+      #container {
+          width: 100%;
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          padding: 0;
+          box-sizing: border-box;
+      }
+      #infoText {
+          width: 100%;
+          margin: 10px;
+          font-size: 2em;
+          text-align: center; 
+      }
+      #statusline {
+          display: flex;
+          flex-direction: column;
+          justify-content: flex-start;
+          margin: 10px;
+          font-size: 0.9em;
+          width: 100%
+      }
+      #toolbar {
+          display: flex;
+          justify-content: flex-start;
+          width: 100%;
+          padding: 10px;
+          gap: 10px;
+      }
+      #examples {
+          display: flex;
+          justify-content: flex-start;
+          width: 100%;
+          padding: 10px;
+          gap: 10px;
+      }
+      #terminal {
+          flex: 1;
+          width: 100%;
+          background-color: #fff;
+          border: none;
+          user-select: text; /* Ermöglicht das Auswählen von Text */
+          -webkit-user-select: text; /* Für WebKit-Browser */
+          -moz-user-select: text; /* Für Firefox */
+      }
+      button {
+          padding: 10px;
+          background-color: #555;
+          color: white;
+          border: none;
+          cursor: pointer;
+      }
+      input {
+          padding: 10px;
+          background-color: #555;
+          color: white;
+          border: none;
+          cursor: pointer;
+      }
+      button:hover {
+          background-color: #777;
+      }
+    </style>
+  </head>
+  <body>
+
+
+    <!-- Container für Toolbar und Terminal -->
+    <div id="container">
+      <!-- Text über der Toolbar -->
+      <div id="infoText">
+         WBS Programmiert ESP32 v 1.ab
+      </div>
+      <!-- Toolbar mit Buttons -->
+      <!-- <div id="toolbar"> -->
+      <!--   <button onclick="clearTerminal()">Neu!</button> -->
+      <!--   Datei laden: <input id="filepick" type="file" name="files[]"></input> -->
+      <!--   Datei speichern: <input id="filepick" type="file" name="files[]"></input> -->
+
+      <!-- </div> -->
+      <!-- <div id="examples"> -->
+      <!--   <button onclick="ask('low led pin\n')">LED aus</button> -->
+      <!--   <button onclick="ask('high led pin\n')">LED an</button> -->
+      <!--   <button onclick="ask('colors\n')">Farben</button> -->
+      <!--   <\!-- <button onclick="showMessage()">Show Message</button> -\-> -->
+      <!--   <button onclick="updateStatusline()">statusline</button>         -->
+      <!--   <button onclick="ask('mbtest\n')">test</button> -->
+      <!--   <button onclick="ask('bye\n')">Reset</button> -->
+      <!-- </div> -->
+      <!-- Div für das Terminal -->
+      <div id="terminal"></div>
+      <div id="statusline">Hier soll die statusline hin!</div>
+    </div>
+
+    <script>
+    <!-- Funktionen zur Kommunikation mit dem Server auf dem ESP32 -->
+
+      function httpPost(url, data, callback) {
+          var r = new XMLHttpRequest();
+          r.onreadystatechange = function() {
+              if (this.readyState == XMLHttpRequest.DONE) {
+                  if (this.status === 200) {
+                      callback(this.responseText);
+                  }
+                  else {
+                      callback(null);
+                  }
+              }
+          };
+          r.open('POST', url);
+          r.send(data);
+      }
+
+    setInterval(function() { ask(''); }, 300);
+    <!-- setInterval(function() { receiveMessage(''); }, 300); -->
+    <!-- setInterval(function() { -->
+    <!--     ask(''); -->
+    <!--     receiveMessage(''); -->
+    <!-- }, 300); -->
+    
+      function ask(cmd, callback) {
+          httpPost('/input', cmd, function(data) {
+              console.log("Antwort:", data);
+              if (data !== null) {
+                  term.write(data);
+              }
+              if (callback !== undefined) { callback(); }
+              focusTerminal();
+          });
+      }
+
+      window.onload = function() {
+          ask('\n');
+          term.textarea.focus();
+      };
+
+      function focusTerminal() {
+          term.textarea.focus();
+      }
+
+      // Initialisieren des Terminals und des Fit-Addons
+
+      const term = new Terminal({
+          allowProposedApi: true, // Aktiviert einige vorgeschlagene APIs, falls erforderlich
+          screenReaderMode: true, // Optional für bessere Barrierefreiheit
+          cursorBlink: true,
+          theme: {
+              background: '#000444', // Terminal-Hintergrund schwarz
+              foreground: '#ffffff'  // Terminal-Textfarbe weiß
+          }
+      });
+      
+      // Terminal an das DOM-Element binden
+      term.open(document.getElementById('terminal'));
+
+      term.attachCustomKeyEventHandler((e) => {
+          // Ermöglicht das Kopieren mit der Maus oder mit "Strg+C"
+          if (e.ctrlKey && e.key === 'c') {
+  const pasteText = (event.clipboardData || window.clipboardData).getData('text');
+
+          // Text ins Terminal schreiben
+          if (pasteText) {
+              term.write(pasteText);
+
+              // Sende den eingefügten Text als Eingabe, als wäre es eine normale Eingabe
+              ask(pasteText + '\n');
+          }
+              
+              console.log("CTRL+c wurde gedrückt!");
+              return true; // Standardverhalten beibehalten
+          }
+          return true;
+      });
+
+      const fitAddon = new FitAddon.FitAddon();
+      term.loadAddon(fitAddon);
+
+
+      // Füge einen Listener für Pasting hinzu
+      term.textarea.addEventListener('paste', (event) => {
+          event.preventDefault();
+
+          // Text aus der Zwischenablage holen
+          const pasteText = (event.clipboardData || window.clipboardData).getData('text');
+
+          // Text ins Terminal schreiben
+          if (pasteText) {
+              term.write(pasteText);
+
+              // Sende den eingefügten Text als Eingabe, als wäre es eine normale Eingabe
+              ask(pasteText + '\n');
+          }
+      });
+
+      // Terminalgröße anpassen
+      function resizeTerminal() {
+          fitAddon.fit(); // Terminal an Container anpassen
+          const rows = term.rows;
+          term.resize(term.cols, rows);
+      };
+
+      // Terminal bei Fenstergröße anpassen
+      window.addEventListener('resize', resizeTerminal);
+
+      // Terminal nach dem Laden anpassen
+      resizeTerminal();
+
+       let buffer = ''; // Puffer zum Speichern der eingegebenen Zeichen
+
+      term.onKey(e => {
+          const char = e.key;
+
+          // Überprüfen, ob die Eingabetaste (Enter) gedrückt wurde
+          if (char === '\r') {
+              // Falls Enter gedrückt wurde, den Pufferinhalt an ask senden
+              if (buffer.trim() !== '') {
+                  ask(buffer + '\n'); // Sende den Befehl über ask
+              }
+
+              // Puffer leeren und neue Zeile im Terminal ausgeben
+              buffer = '';
+              term.write('\r\n'); // Neue Zeile für die nächste Eingabe bereitstellen
+          } else if (char === '\u007F') { // Sonderbehandlung für Backspace
+              // Wenn Backspace gedrückt wird, entferne das letzte Zeichen aus dem Puffer
+              if (buffer.length > 0) {
+                  buffer = buffer.slice(0, -1);
+                  // Entferne das letzte Zeichen aus dem Terminal
+                  term.write('\b \b');
+              }
+          } else {
+              // Alle anderen Zeichen zum Puffer hinzufügen und ins Terminal schreiben
+              buffer += char;
+              term.write(char);
+          }
+      });
+
+      // Funktionen für die Buttons
+      function clearTerminal() {
+          term.clear();
+      }
+
+      function showMessage() {
+          term.writeln('\x1b[92mThis is a message from the toolbar!\x1b[0m');
+          term.writeln(unsertext);
+      }
+      function updateStatusline(message) {
+          const statusDiv = document.getElementById("statusline");
+          statusDiv.innerText = message;
+      }
+      function receiveMessage() {
+          const serverURL = `${window.location.origin}/status-message`;
+          fetch(serverURL)
+              .then(response => response.text())
+              .then(message => updateStatusline(message))
+              .catch(error => console.error("Fehler beim Abrufen der Nachricht:", error));
+      }
+
+    </script>
+  </body>
+</html>
